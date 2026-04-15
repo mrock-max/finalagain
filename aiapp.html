@@ -3,28 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <a href="from-scratch/from_scratch.html" class="back-link">← Return to From Scratch</a>
 <title>Felt & Ivory — 8-Ball Pool</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Josefin+Sans:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
-  .back-link{
-  font-size:11px;
-  letter-spacing:2px;
-  text-transform:uppercase;
-  color:var(--muted);
-  text-decoration:none;
-  padding:6px 10px;
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:14px;
-  transition:all .2s ease;
-}
-
-.back-link:hover{
-  color:var(--gold);
-  border-color:rgba(212,168,75,.4);
-  background:rgba(0,0,0,.25);
-}
-``
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --felt:#1a5c3a;--felt-dark:#143d27;--felt-light:#236b45;
@@ -81,9 +62,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 </style>
 </head>
 <body>
-    <a href="../from-scratch/from_scratch.html" class="back-link">
-  Return to from scratch page
-</a>
 <div id="app">
   <div id="header">
     <div class="game-title">Felt <span>&amp;</span> Ivory</div>
@@ -138,10 +116,8 @@ function setSizes(){
   if(MAX_W / RATIO <= MAX_H){ TW = MAX_W; TH = TW / RATIO; }
   else { TH = MAX_H; TW = TH * RATIO; }
   RAIL = 28;
-
-  POCKET_R = 22; // 🔥 increased from 16
+  POCKET_R = 16;
   BALL_R = TW * 0.018;
-
   canvas.width = TW + RAIL*2;
   canvas.height = TH + RAIL*2;
   OX = RAIL; OY = RAIL;
@@ -237,15 +213,12 @@ class Ball {
     if(this.y + BALL_R > OY+TH){ this.y = OY+TH - BALL_R; this.vy = -Math.abs(this.vy)*0.75; this.spin -= this.vx*0.05; playSound('wall'); }
     // Pocket check
     for(const p of getPockets()){
-    const dx = this.x - p.x;
-    const dy = this.y - p.y;
-
-    if(dx*dx + dy*dy < (POCKET_R*1.4)*(POCKET_R*1.4)){
-      this.potted = true;
-      this.vx = 0;
-      this.vy = 0;
-      onBallPotted(this);
-      return;
+      const dx = this.x - p.x, dy = this.y - p.y;
+      if(dx*dx+dy*dy < (POCKET_R*1.1)*(POCKET_R*1.1)){
+        this.potted = true;
+        this.vx = 0; this.vy = 0;
+        onBallPotted(this);
+        return;
       }
     }
   }
@@ -827,72 +800,36 @@ function roundRect(c, x, y, w, h, r){
 // Draw aim line
 function drawAim(){
   if(!isDragging || gameState!=='aiming') return;
-
-  const ax = Math.cos(aimAngle);
-  const ay = Math.sin(aimAngle);
-
-  ctx.setLineDash([6,6]);
-  ctx.strokeStyle='rgba(255,255,255,0.6)';
-  ctx.lineWidth=2;
-
-  ctx.beginPath();
-  ctx.moveTo(cueBall.x, cueBall.y);
-
-  let hitBall = null;
-  let hitX = cueBall.x;
-  let hitY = cueBall.y;
-
-  for(let t=0; t<1000; t+=4){
-    let x = cueBall.x + ax*t;
-    let y = cueBall.y + ay*t;
-
-    if(x < OX+BALL_R || x > OX+TW-BALL_R ||
-       y < OY+BALL_R || y > OY+TH-BALL_R){
-      hitX = x;
-      hitY = y;
-      break;
-    }
-
+  const ax=Math.cos(aimAngle), ay=Math.sin(aimAngle);
+  // Ghost ball trajectory
+  let cx=cueBall.x, cy=cueBall.y;
+  let vx=ax*aimPower*0.8, vy=ay*aimPower*0.8;
+  // Draw dotted guide
+  ctx.setLineDash([5,8]);
+  ctx.strokeStyle='rgba(232,255,71,0.35)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(cx,cy);
+  let steps=0;
+  while(steps<80){
+    cx+=vx; cy+=vy;
+    vx*=0.97; vy*=0.97;
+    if(cx<OX+BALL_R){cx=OX+BALL_R; vx=Math.abs(vx);}
+    if(cx>OX+TW-BALL_R){cx=OX+TW-BALL_R; vx=-Math.abs(vx);}
+    if(cy<OY+BALL_R){cy=OY+BALL_R; vy=Math.abs(vy);}
+    if(cy>OY+TH-BALL_R){cy=OY+TH-BALL_R; vy=-Math.abs(vy);}
+    ctx.lineTo(cx,cy);
+    // Check ball intersection
+    let hit=false;
     for(const b of balls){
-      if(b===cueBall || b.potted) continue;
-
-      const dx = x - b.x;
-      const dy = y - b.y;
-
-      if(dx*dx + dy*dy < (BALL_R*2)*(BALL_R*2)){
-        hitBall = b;
-        hitX = x;
-        hitY = y;
-        break;
-      }
+      if(b===cueBall||b.potted) continue;
+      const dx=cx-b.x, dy=cy-b.y;
+      if(dx*dx+dy*dy<(BALL_R*2.2)*(BALL_R*2.2)){hit=true;break;}
     }
-
-    if(hitBall) break;
+    if(hit||Math.sqrt(vx*vx+vy*vy)<0.5) break;
+    steps++;
   }
-
-  ctx.lineTo(hitX, hitY);
   ctx.stroke();
-
-  if(hitBall){
-    const dx = hitBall.x - hitX;
-    const dy = hitBall.y - hitY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-
-    const nx = dx / dist;
-    const ny = dy / dist;
-
-    ctx.setLineDash([3,6]);
-    ctx.strokeStyle='rgba(255,215,0,0.8)';
-    ctx.lineWidth=2;
-
-    ctx.beginPath();
-    ctx.moveTo(hitBall.x, hitBall.y);
-    ctx.lineTo(hitBall.x + nx * 250, hitBall.y + ny * 250);
-    ctx.stroke();
-  }
-
   ctx.setLineDash([]);
-}
 
   // Cue stick
   const cueLen=TW*0.35;
