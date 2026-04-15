@@ -138,8 +138,10 @@ function setSizes(){
   if(MAX_W / RATIO <= MAX_H){ TW = MAX_W; TH = TW / RATIO; }
   else { TH = MAX_H; TW = TH * RATIO; }
   RAIL = 28;
-  POCKET_R = 22;
+
+  POCKET_R = 22; // 🔥 increased from 16
   BALL_R = TW * 0.018;
+
   canvas.width = TW + RAIL*2;
   canvas.height = TH + RAIL*2;
   OX = RAIL; OY = RAIL;
